@@ -11,28 +11,55 @@ const Index = () => {
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!inputValue.trim()) return;
 
     const userMessage = { role: 'user' as const, text: inputValue };
     setMessages(prev => [...prev, userMessage]);
+    const currentInput = inputValue;
     setInputValue('');
     setIsTyping(true);
 
-    setTimeout(() => {
-      const responses = [
-        'Отличный вопрос! Я могу помочь вам с анализом данных, генерацией текста и многим другим.',
-        'Интересно! Давайте разберем это вместе. Что именно вас интересует?',
-        'Я обрабатываю ваш запрос... На основе моих алгоритмов могу предложить несколько вариантов.',
-        'Понимаю вас! Это одна из моих сильных сторон. Давайте найдем решение.'
-      ];
-      const aiMessage = { 
+    try {
+      const apiMessages = [...messages, { role: 'user', text: currentInput }].map(msg => ({
+        role: msg.role === 'ai' ? 'assistant' : 'user',
+        content: msg.text
+      }));
+
+      const response = await fetch('https://functions.poehali.dev/fb8ae053-6a20-41f5-9343-723cd385fac5', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messages: apiMessages
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.message) {
+        const aiMessage = { 
+          role: 'ai' as const, 
+          text: data.message
+        };
+        setMessages(prev => [...prev, aiMessage]);
+      } else {
+        const errorMessage = { 
+          role: 'ai' as const, 
+          text: 'Извините, произошла ошибка. Пожалуйста, проверьте настройки API ключа.'
+        };
+        setMessages(prev => [...prev, errorMessage]);
+      }
+    } catch (error) {
+      const errorMessage = { 
         role: 'ai' as const, 
-        text: responses[Math.floor(Math.random() * responses.length)] 
+        text: 'Не удалось связаться с сервером. Попробуйте позже.'
       };
-      setMessages(prev => [...prev, aiMessage]);
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
       setIsTyping(false);
-    }, 1500);
+    }
   };
 
   const features = [
